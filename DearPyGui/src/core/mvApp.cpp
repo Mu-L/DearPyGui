@@ -38,12 +38,13 @@ namespace Marvel {
 
 	mvApp* mvApp::GetApp()
 	{
-		mvLog::Init();
-
+		
 		if (s_instance)
 			return s_instance;
 
+		mvLog::Init();
 		s_instance = new mvApp();
+		s_id = MV_START_UUID;
 		return s_instance;
 	}
 
@@ -141,28 +142,17 @@ namespace Marvel {
 		}
 
 		s_started = false;
-	}
-
-	void mvApp::SetAppStopped() 
-	{ 
-
-        GetApp()->getCallbackRegistry().stop();
-        GetApp()->getCallbackRegistry().addCallback(nullptr, 0, nullptr, nullptr);
-        GetApp()->m_future.get();
-		s_started = false; 
-		auto viewport = s_instance->getViewport();
-		if (viewport)
-			viewport->stop();
+		s_id = MV_START_UUID;
 	}
 
 	void mvApp::cleanup()
 	{
-		getCallbackRegistry().stop();
-
-		getCallbackRegistry().addCallback(nullptr, 0, nullptr, nullptr);
-      
+		getCallbackRegistry().submitCallback([=]() {
+			mvApp::GetApp()->getCallbackRegistry().stop();
+			});
 		m_future.get();
-		delete m_viewport;
+		if(m_viewport)
+			delete m_viewport;
 		s_started = false;
 	}
 
@@ -252,18 +242,26 @@ namespace Marvel {
 			parsers->insert({ "enable_docking", parser });
 		}
 
-		//{
-		//	mvPythonParser parser(mvPyDataType::None, "Use dpg.ini file.", { "General" });
-		//	parser.finalize();
-		//	parsers->insert({ "use_init_file", parser });
-		//}
+		{
+			mvPythonParser parser(mvPyDataType::None, "set dpg.ini file.", { "General" });
+			parser.addArg<mvPyDataType::String>("file", mvArgType::KEYWORD_ARG, "'dpg.ini'", "dpg.ini by default");
+			parser.finalize();
+			parsers->insert({ "set_init_file", parser });
+		}
 
-		//{
-		//	mvPythonParser parser(mvPyDataType::None, "Load dpg.ini file.", { "General" });
-		//	parser.addArg<mvPyDataType::String>("file");
-		//	parser.finalize();
-		//	parsers->insert({ "load_init_file", parser });
-		//}
+		{
+			mvPythonParser parser(mvPyDataType::None, "Load dpg.ini file.", { "General" });
+			parser.addArg<mvPyDataType::String>("file");
+			parser.finalize();
+			parsers->insert({ "load_init_file", parser });
+		}
+
+		{
+			mvPythonParser parser(mvPyDataType::None, "Save dpg.ini file.", { "General" });
+			parser.addArg<mvPyDataType::String>("file");
+			parser.finalize();
+			parsers->insert({ "save_init_file", parser });
+		}
 
 		{
 			mvPythonParser parser(mvPyDataType::None, "Resets to default theme.", { "General" });
@@ -362,9 +360,15 @@ namespace Marvel {
 
 	}
 
-	PyObject* mvApp::use_init_file(PyObject* self, PyObject* args, PyObject* kwargs)
+	PyObject* mvApp::set_init_file(PyObject* self, PyObject* args, PyObject* kwargs)
 	{
-		mvApp::GetApp()->useIniFile();
+		const char* file;
+
+		if (!(mvApp::GetApp()->getParsers())["set_init_file"].parse(args, kwargs, __FUNCTION__,
+			&file))
+			return GetPyNone();
+
+		mvApp::GetApp()->setIniFile(file);
 
 		return GetPyNone();
 	}
@@ -385,6 +389,22 @@ namespace Marvel {
 			return GetPyNone();
 
 		mvApp::GetApp()->loadIniFile(file);
+
+		return GetPyNone();
+	}
+
+	PyObject* mvApp::save_init_file(PyObject* self, PyObject* args, PyObject* kwargs)
+	{
+		const char* file;
+
+		if (!(mvApp::GetApp()->getParsers())["save_init_file"].parse(args, kwargs, __FUNCTION__,
+			&file))
+			return GetPyNone();
+
+		if (mvApp::IsAppStarted())
+			ImGui::SaveIniSettingsToDisk(file);
+		else
+			mvThrowPythonError(mvErrorCode::mvNone, "Dear PyGui must be started to use \"save_init_file\".");
 
 		return GetPyNone();
 	}
@@ -515,6 +535,8 @@ namespace Marvel {
 			&viewport))
 			return GetPyNone();
 
+		if (!mvApp::s_manualMutexControl) std::lock_guard<std::mutex> lk(mvApp::s_mutex);
+
 		Py_BEGIN_ALLOW_THREADS;
 		mvLog::Init();
 
@@ -549,6 +571,7 @@ namespace Marvel {
 
 	PyObject* mvApp::cleanup_dearpygui(PyObject* self, PyObject* args, PyObject* kwargs)
 	{
+		if (!mvApp::s_manualMutexControl) std::lock_guard<std::mutex> lk(mvApp::s_mutex);
 
 		Py_BEGIN_ALLOW_THREADS;
 		mvApp::GetApp()->cleanup();	
@@ -561,6 +584,7 @@ namespace Marvel {
 
 	PyObject* mvApp::stop_dearpygui(PyObject* self, PyObject* args, PyObject* kwargs)
 	{
+		if (!mvApp::s_manualMutexControl) std::lock_guard<std::mutex> lk(mvApp::s_mutex);
 		mvApp::StopApp();
 		auto viewport = mvApp::GetApp()->getViewport();
 		if (viewport)

@@ -56,6 +56,7 @@ namespace Marvel {
 		parser.addArg<mvPyDataType::Bool>("no_pad_innerX", mvArgType::KEYWORD_ARG, "False", "Disable inner padding between columns (double inner padding if BordersOuterV is on, single inner padding if BordersOuterV is off).");
 		parser.addArg<mvPyDataType::Bool>("scrollX", mvArgType::KEYWORD_ARG, "False", "Enable horizontal scrolling. Require 'outer_size' parameter of BeginTable() to specify the container size. Changes default sizing policy. Because this create a child window, ScrollY is currently generally recommended when using ScrollX.");
 		parser.addArg<mvPyDataType::Bool>("scrollY", mvArgType::KEYWORD_ARG, "False", "Enable vertical scrolling.");
+		parser.addArg<mvPyDataType::Bool>("no_saved_settings", mvArgType::KEYWORD_ARG, "False", "Never load/save settings in .ini file.");
 
 		parser.finalize();
 
@@ -140,6 +141,7 @@ namespace Marvel {
 
 			if (!m_children[1].empty())
 			{
+				// TODO: hacky solution, needs work
 				if(m_children[1][0]->getType() != mvAppItemType::mvTableRow && 
 					m_children[1][0]->getType() != mvAppItemType::mvClipper &&
 					m_children[1][0]->getType() != mvAppItemType::mvFilterSet)
@@ -216,6 +218,7 @@ namespace Marvel {
 		flagop("scrollY", ImGuiTableFlags_ScrollY, m_flags);
 		flagop("sort_multi", ImGuiTableFlags_SortMulti, m_flags);
 		flagop("sort_tristate", ImGuiTableFlags_SortTristate, m_flags);
+		flagop("no_saved_settings", ImGuiTableFlags_NoSavedSettings, m_flags);
 
 		if (PyObject* item = PyDict_GetItemString(dict, "policy"))
 		{
@@ -281,6 +284,7 @@ namespace Marvel {
 		checkbitset("scrollY", ImGuiTableFlags_ScrollY, m_flags);
 		checkbitset("sort_multi", ImGuiTableFlags_SortMulti, m_flags);
 		checkbitset("sort_tristate", ImGuiTableFlags_SortTristate, m_flags);
+		checkbitset("no_saved_settings", ImGuiTableFlags_NoSavedSettings, m_flags);
 		
 		if(m_flags & ImGuiTableFlags_SizingFixedFit)
 			PyDict_SetItemString(dict, "policy", ToPyInt(ImGuiTableFlags_SizingFixedFit));

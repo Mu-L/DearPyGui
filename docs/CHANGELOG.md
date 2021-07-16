@@ -22,10 +22,21 @@ We generally fold multiple commits pertaining to the same topic as a single entr
 
 ## VERSION 0.8.x
 
+### New
+* added `set_init_file(...)` #1073
+* added `load_init_file(...)` #1073
+* added `save_init_file(...)` #1073
+* added `no_saved_settings` keyword to window
+* added `no_saved_settings` keyword to table
+
+## VERSION 0.8.39
+
 ### Fixes
 * added check for 0 column tables #1071
 * fixed type hint for `delay` search
 * added `user_data` support for table
+* fixed plot series theming issue when not using labels #1064
+* temporary fix to #1071
 
 ## VERSION 0.8.38
 
